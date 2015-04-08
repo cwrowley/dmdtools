@@ -35,7 +35,7 @@
 %   Clarence W. Rowley
 %
 % Created:
-%   August 2014.
+%   March 2014.
 %
 %   see also StreamingTDMD
 %
@@ -44,7 +44,7 @@
 
 
 % set example parameters here
-max_rank =10;      % maximum allowable rank of the DMD operator
+max_rank =20;      % maximum allowable rank of the DMD operator
                     %   (set to zero for unlimited)
 m = 1001;            % total number of snapshots to be processed
 n = 4001;           % number of states
@@ -52,7 +52,6 @@ noise_cov = 1e-1;   % measurement noise covariance
 rng(0)              % seed the random number generator
 streaming = true;   % true=use streaming DMD, false=use batch-processed DMD
 
-col = 'ms';
 %% define the example system
 % random state directions
 v1 = randn(n,1);
@@ -140,24 +139,17 @@ ydmdtls = ydmdtls./max(abs(ydmdtls));
 figure(1)
 stem(fdmd,ydmd,'bo-')
 hold on;
-stem(fdmdtls,ydmdtls,'ro--')
+stem(fdmdtls,ydmdtls,'rx--')
 xlabel('Frequency')
 ylabel('Magnitude')
+legend('Streaming DMD','Streaming TDMD')
 
 figure(2);hold on;
-plot(real(evals),imag(evals),'bo',real(evalstls),imag(evalstls),col);
+plot(real(evals),imag(evals),'bo',real(evalstls),imag(evalstls),'rx');
 hold on;
 th = [0:.01:2*pi];
 plot(cos(th),sin(th),'k--'); axis equal;
-
-% % normalize modes to unit norm
-% for ii = 1:length(fdmdtls)
-%     normmodes(:,ii) = modestls(:,ii)./norm(modestls(:,ii));
-% end
-% 
-% % compute mode energies based on the last snapshot
-% enrg = normmodes\yk;
-% 
-% % plot mode energies
-% figure(3);hold on;
-% plot(abs(enrg),col)
+xlabel('Re')
+ylabel('Im')
+legend('Streaming DMD','Streaming TDMD')
+title('DMD Eigenvalues')
