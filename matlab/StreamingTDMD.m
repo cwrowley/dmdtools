@@ -142,8 +142,10 @@ classdef StreamingTDMD
             n = size(obj.Qz, 1)/2;
             [Qx, Rx] = qr(obj.Qz(1:n, :));
             r0 = obj.max_rank;
-            Qx = Qx(:,1:r0);
-            Rx = Rx(1:r0,:);
+            if r0
+                Qx = Qx(:,1:r0);
+                Rx = Rx(1:r0,:);
+            end
             Gx = Rx*obj.Gz*Rx';
             A = Qx'*obj.Qz(n+1:end, :)*obj.Gz*obj.Qz(1:n, :).'*Qx;
             

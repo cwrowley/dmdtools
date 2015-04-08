@@ -17,15 +17,12 @@
 %   A total of m snapshot pairs are measured sequentially and are subject 
 %   to additive i.i.d. zero-mean Gaussian noise with covariance noise_cov.
 %
-%   To toggle between streaming and batch-processed DMD modes, toggle the
-%   streaming flag between true and false, respectively.  The StreamingDMD 
-%   Matlab class is used to perform incremental updates to the DMD 
-%   computation when streaming=true.
-%
-%   When in streaming mode, to run the direct streaming algorithm set 
-%   max_rank=0; otherwise, incrementally update DMD with POD truncation,
-%   where max_rank denotes the truncation threshold (i.e., the maximum
-%   number of retained POD modes).
+%   Streaming versions of both DMD and TDMD are run side-by-side for
+%   comparison.  The StreamingDMD and StreamingTDMD Matlab classes are
+%   used to perform incremental updates to the DMD and TDMD computations,
+%   respectively.  Both methods make use of a data compression procedure to
+%   ensure that the analysis only retains up to a specified number of 
+%   DMD modes, given by the truncation threshold `max_rank'.
 %
 % Tested using Matlab 8.1.0.604 (R2013a) for Mac OSX.
 %
@@ -35,7 +32,7 @@
 %   Clarence W. Rowley
 %
 % Created:
-%   March 2014.
+%   March 2015.
 %
 %   see also StreamingTDMD
 %
@@ -44,13 +41,12 @@
 
 
 % set example parameters here
-max_rank =20;      % maximum allowable rank of the DMD operator
+max_rank = 0;      % maximum allowable rank of the DMD operator
                     %   (set to zero for unlimited)
-m = 1001;            % total number of snapshots to be processed
-n = 4001;           % number of states
+m = 1001;           % total number of snapshots to be processed
+n = 41;           % number of states
 noise_cov = 1e-1;   % measurement noise covariance
 rng(0)              % seed the random number generator
-streaming = true;   % true=use streaming DMD, false=use batch-processed DMD
 
 %% define the example system
 % random state directions
@@ -75,32 +71,19 @@ get_snapshot = @(k) dynsys(k) + sqrt(noise_cov) * randn(n,1);
 
 disp('Collecting data')
 tic
-if ~streaming
-    % standard algorithm: batch-processing
-    X = zeros(n, m);
-    Y = zeros(n, m);
-    yk = get_snapshot(0);
-    for k = 1:m
-        xk = yk;
-        yk = get_snapshot(k);
-        X(:,k) = xk;
-        Y(:,k) = yk;
-    end
-    [Qx, S, V] = svd(X, 0);
-    Ktilde = Qx' * Y * V * pinv(S);
-else
-    % streaming algorithm    
-    stdmd = StreamingTDMD(max_rank);
-    sdmd = StreamingDMD(max_rank);
-    
-    yk = get_snapshot(0);
-    for k = 1:m
-        xk = yk;
-        yk = get_snapshot(k);
-        stdmd = stdmd.update(xk, yk);
-        sdmd = sdmd.update(xk, yk);
-    end
+
+% streaming algorithm
+stdmd = StreamingTDMD(max_rank);
+sdmd = StreamingDMD(max_rank);
+
+yk = get_snapshot(0);
+for k = 1:m
+    xk = yk;
+    yk = get_snapshot(k);
+    stdmd = stdmd.update(xk, yk);
+    sdmd = sdmd.update(xk, yk);
 end
+
 elapsed_time = toc;
 fprintf('  Elapsed time: %f seconds\n', elapsed_time)
 
@@ -108,16 +91,9 @@ fprintf('  Elapsed time: %f seconds\n', elapsed_time)
 %% compute DMD spectrum
 disp('Computing spectrum')
 tic
-if ~streaming
-    % standard DMD spectrum
-    [evecK, evals] = eig(Ktilde);
-    evals = diag(evals);
-    modes = Qx * evecK;
-else
-    % streaming algorithm
-    [modestls, evalstls] = stdmd.compute_modes();
-    [modes, evals] = sdmd.compute_modes();
-end
+% streaming algorithms
+[modestls, evalstls] = stdmd.compute_modes();
+[modes, evals] = sdmd.compute_modes();
 elapsed_time = toc;
 fprintf('  Elapsed time: %f seconds\n', elapsed_time)
 
