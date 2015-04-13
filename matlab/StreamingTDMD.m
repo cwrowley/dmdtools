@@ -139,7 +139,7 @@ classdef StreamingTDMD
             %   DMD modes of the current dataset.
 
             n = size(obj.Qz, 1)/2;
-            [Qx, Rx] = qr(obj.Qz(1:n, :));
+            [Qx, Rx] = qr(obj.Qz(1:n, :),0);
             r0 = obj.max_rank;
             if r0
                 Qx = Qx(:,1:r0);
