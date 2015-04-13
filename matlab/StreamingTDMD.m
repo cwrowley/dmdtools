@@ -31,7 +31,7 @@
 % Created:
 %   March 2015.
 %
-%   See also: StreamingTDMD/UPDATE, StreamingTDMD/COMPUTE_MODES, sdmd_run
+%   See also: StreamingTDMD/UPDATE, StreamingTDMD/COMPUTE_MODES, stdmd_run
 %
 % Reference page in Help browser:
 %   <a href="matlab:doc StreamingTDMD">doc StreamingTDMD</a>
@@ -77,24 +77,23 @@ classdef StreamingTDMD
             obj.count = obj.count + 1;
 
             % construct augmented snapshot
-            zin = [xin;yin];
-            normz = norm(zin);
+            z = [xin;yin];
+            normz = norm(z);
             n = size(xin,1);
             
             
             % ---- Process the First Iterate ----
             if obj.count == 1
                 % construct bases
-                obj.Qz = zin/norm(zin);                
-                z = obj.Qz*obj.Qz'*zin;
-                obj.Gz = norm(z)^2; 
+                obj.Qz = z/normz;
+                obj.Gz = normz^2; 
                 return
             end
             
             % ---- TLS Stage, Step 1 ----
             % classical Gram-Schmidt reorthonormalization
             ztilde = zeros(size(obj.Qz,2),1);
-            ez = zin;
+            ez = z;
             for igram = 1:ngram
                 dz = obj.Qz' * ez;
                 ztilde = ztilde + dz;
@@ -111,7 +110,7 @@ classdef StreamingTDMD
             end
             
             
-            ztilde = obj.Qz'*zin;
+            ztilde = obj.Qz'*z;
             obj.Gz = obj.Gz + ztilde*ztilde';
             
             
