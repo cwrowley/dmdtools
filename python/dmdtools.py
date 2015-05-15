@@ -10,6 +10,8 @@ def dmd(X, Y):
     modes = Qx.dot(evecK)
     return modes, evals
 
+def polynomial_kernel(X, Y, n):
+    return (1 + np.dot(X.T, Y)) ** n
 
 def kdmd(X, Y, kernel=None):
     """Compute Koopman modes and eigenvalues using kernel DMD
@@ -37,18 +39,14 @@ def kdmd(X, Y, kernel=None):
         G = np.dot(X.T, X)
         A = np.dot(Y.T, X)
     elif type(kernel) is int:
-        # polynomial kernel: (1 + x.y)^n
-        G = (1 + np.dot(X.T, X)) ** kernel
-        A = (1 + np.dot(Y.T, X)) ** kernel
+        # use the polynomial kernel: (1 + x.y)^n
+        G = polynomial_kernel(X, X, kernel)
+        A = polynomial_kernel(Y, X, kernel)
     else:
-        m = X.shape[1]
-        G = np.zeros(m, m)
-        A = np.zeros(m, m)
-        for i in range(m):
-            for j in range(m):
-                G[i, j] = kernel(X[:, i], X[:, j])
-                A[i, j] = kernel(Y[:, i], X[:, j])
-    K = np.dot(np.linalg.pinv(G), A) 
+        # use a custom kernel
+        G = kernel(X, X)
+        A = kernel(Y, X)
+    K = np.dot(np.linalg.pinv(G), A)
     evals, evecs = np.linalg.eig(K.T)
     Ginv = np.linalg.pinv(G)
     modes = np.dot(X, np.dot(Ginv, evecs))

@@ -23,6 +23,11 @@ class TestDMD(unittest.TestCase):
     def test_2d_kernel_0(self):
         self.check_2d(kdmd, kernel=0)
 
+    def test_2d_custom_kernel(self):
+        def custom_kernel(X, Y):
+            return np.dot(X.T, Y)
+        self.check_2d(kdmd, kernel=custom_kernel)
+
     def check_2d_random_data(self, n_data, f, **kwargs):
 
         eigvals = [0.9, 0.5]
@@ -63,7 +68,6 @@ class TestDMD(unittest.TestCase):
         n_data = 100
         for kernel_value in range(1, 5):
             self.check_2d_random_data(n_data, kdmd, kernel=kernel_value)
-
 
 
 if __name__ == "__main__":
