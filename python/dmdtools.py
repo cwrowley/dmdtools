@@ -10,6 +10,49 @@ def dmd(X, Y):
     modes = Qx.dot(evecK)
     return modes, evals
 
+def kdmd(X, Y, kernel=None):
+    """Compute Koopman modes and eigenvalues using kernel DMD
+
+    Parameters
+    ----------
+    X : array
+        Input array whose columns are snapshots at initial times
+    Y : array
+        Input array whose columns are snapshots at final times
+    kernel : int or callable, optional
+        If None (default) or zero, use kernel f(x,y) = x'y
+        If integer ``n``, use polynomial kernel f(x,y) = (1 + x'y)^n
+        If callable ``kernel``, use custom f(x,y) = kernel(x, y)
+
+    Returns
+    -------
+    modes : array
+        Array whose columns are Koopman modes
+    evals : array
+        DMD eigenvalues
+    """
+    if kernel is None or kernel == 0:
+        # standard DMD
+        G = np.dot(X.T, X)
+        A = np.dot(Y.T, X)
+    elif type(kernel) is int:
+        # polynomial kernel: (1 + x.y)^n
+        G = (1 + np.dot(X.T, X)) ** kernel
+        A = (1 + np.dot(Y.T, X)) ** kernel
+    else:
+        m = X.shape[1]
+        G = np.zeros(m, m)
+        A = np.zeros(m, m)
+        for i in range(m):
+            for j in range(m):
+                G[i,j] = kernel(X[:,i], X[:,j])
+                A[i,j] = kernel(Y[:,i], X[:,j])
+    K = np.dot(np.linalg.pinv(G), A)
+    evals, evecs = np.linalg.eig(K.T)
+    Ginv = np.linalg.pinv(G)
+    modes = np.dot(X.T, np.dot(Ginv, evecs))
+    return modes, evals
+
 class StreamingDMD:
     def __init__(self, max_rank=None, ngram=5, epsilon=1.e-10):
         self.max_rank = max_rank
