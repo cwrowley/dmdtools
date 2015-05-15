@@ -23,11 +23,6 @@ class TestDMD(unittest.TestCase):
     def test_2d_kernel_0(self):
         self.check_2d(kdmd, kernel=0)
 
-# This test will fail; regularization will change the eigenvalues
-#    def test_2d_kernel_5(self):
-#        # TODO: fix this test.  Probably shouldn't recover the eigenvalues of A
-#        self.check_2d(kdmd, kernel=5)
-
     def check_2d_random_data(self, n_data, f, **kwargs):
 
         eigvals = [0.9, 0.5]
@@ -49,7 +44,7 @@ class TestDMD(unittest.TestCase):
 
         # Check that all modes BUT the ones associated
         # with the system eigenvalues are 0
-        for ii in xrange(0, len(evals)):
+        for ii in range(0, len(evals)):
             try:  # Either the mode is 0 in norm
                 np.testing.assert_array_almost_equal(modes[:, ii], np.zeros(2))
             except AssertionError:  # OR we match an eigval/eigvec
@@ -66,9 +61,8 @@ class TestDMD(unittest.TestCase):
 
     def test_2d_kernel_powers_random(self):
         n_data = 100
-        for kernel_value in xrange(1, 5):
+        for kernel_value in range(1, 5):
             self.check_2d_random_data(n_data, kdmd, kernel=kernel_value)
-
 
 
 
