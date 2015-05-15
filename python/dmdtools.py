@@ -10,6 +10,7 @@ def dmd(X, Y):
     modes = Qx.dot(evecK)
     return modes, evals
 
+
 def kdmd(X, Y, kernel=None):
     """Compute Koopman modes and eigenvalues using kernel DMD
 
@@ -45,13 +46,14 @@ def kdmd(X, Y, kernel=None):
         A = np.zeros(m, m)
         for i in range(m):
             for j in range(m):
-                G[i,j] = kernel(X[:,i], X[:,j])
-                A[i,j] = kernel(Y[:,i], X[:,j])
-    K = np.dot(np.linalg.pinv(G), A)
+                G[i, j] = kernel(X[:, i], X[:, j])
+                A[i, j] = kernel(Y[:, i], X[:, j])
+    K = np.dot(np.linalg.pinv(G), A) 
     evals, evecs = np.linalg.eig(K.T)
     Ginv = np.linalg.pinv(G)
-    modes = np.dot(X.T, np.dot(Ginv, evecs))
+    modes = np.dot(X, np.dot(Ginv, evecs))
     return modes, evals
+
 
 class StreamingDMD:
     def __init__(self, max_rank=None, ngram=5, epsilon=1.e-10):
@@ -74,8 +76,8 @@ class StreamingDMD:
         normy = np.linalg.norm(y)
         n = len(x)
 
-        x = np.asmatrix(x).reshape((n,1))
-        y = np.asmatrix(y).reshape((n,1))
+        x = np.asmatrix(x).reshape((n, 1))
+        y = np.asmatrix(y).reshape((n, 1))
 
         # process the first iterate
         if self.count == 1:
@@ -93,10 +95,10 @@ class StreamingDMD:
         # classical Gram-Schmidt reorthonormalization
         rx = self.Qx.shape[1]
         ry = self.Qy.shape[1]
-        xtilde = np.matrix(np.zeros((rx,1)))
-        ytilde = np.matrix(np.zeros((ry,1)))
-        ex = np.matrix(x).reshape((n,1))
-        ey = np.matrix(y).reshape((n,1))
+        xtilde = np.matrix(np.zeros((rx, 1)))
+        ytilde = np.matrix(np.zeros((ry, 1)))
+        ex = np.matrix(x).reshape((n, 1))
+        ey = np.matrix(y).reshape((n, 1))
         for i in range(self.ngram):
             dx = self.Qx.T.dot(ex)
             dy = self.Qy.T.dot(ey)
@@ -111,8 +113,8 @@ class StreamingDMD:
             # update basis for x
             self.Qx = np.bmat([self.Qx, ex / np.linalg.norm(ex)])
             # increase size of Gx and A (by zero-padding)
-            self.Gx = np.bmat([[self.Gx, np.zeros((rx,1))],[np.zeros((1,rx+1))]])
-            self.A = np.bmat([self.A, np.zeros((ry,1))])
+            self.Gx = np.bmat([[self.Gx, np.zeros((rx, 1))],[np.zeros((1,rx+1))]])
+            self.A = np.bmat([self.A, np.zeros((ry, 1))])
             rx += 1
 
         # check basis for y and expand if necessary
