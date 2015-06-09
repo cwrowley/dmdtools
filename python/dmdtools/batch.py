@@ -42,12 +42,13 @@ class DMD(object):
         If false (default), compute the DMD modes using projected DMD
         If true, compute the DMD modes using exact DMD
 
-        See Tu 2014 for details.
+        See Tu et al., 2014 for details.
 
     total : bool, optional
         If false (default), compute the ``standard'' DMD modes
         If true, compute the total least squares DMD modes
 
+        See Hemati & Rowley, 2015 for details.
 
     Attributes
     ----------
@@ -114,14 +115,13 @@ class DMD(object):
 
         # ====== Total Least Squares DMD: Project onto shared subspace ========
         if self.total:
-            # Only retain the V^* part of the SVD; the rest is not needed
-            Vh_stacked = np.linalg.svd(np.r_[X, Y], full_matrices=False)[2]
-            Vh_stacked = Vh_stacked[:self.n_rank, :]  # Compress to rank n_rank
+            # Compute V using the method of snapshots
+            sig2, V_stacked = np.linalg.eigh(X.T.dot(X) + Y.T.dot(Y))
 
             # Compute the "clean" data sets
-            proj_Vh = Vh_stacked.dot(Vh_stacked.T)
-            X = X.dot(Vh_stacked).dot(proj_Vh)
-            Y = Y.dot(Vh_stacked).dot(pvoj_Vh)
+            proj_Vh = V_stacked.T.dot(V_stacked)
+            X = X.dot(proj_Vh)
+            Y = Y.dot(proj_Vh)
 
         # ===== Dynamic Mode Decomposition Computation ======
         U, S, Vh = np.linalg.svd(X, full_matrices=False)
