@@ -58,7 +58,7 @@ def check_dmd_computation_simple(exact, total):
     # DMD class with rank 2
     DMD = dmdtools.DMD(2, exact, total)
     DMD.fit(X, Y)
-    dmd_vals, dmd_modes = DMD.get_dmd_pairs(sortby="LM")
+    dmd_vals, dmd_modes = DMD.get_mode_pairs(sortby="LM")
 
     for ii in range(len(vals)):
         assert np.abs(dmd_vals[ii] - vals[ii]) < 1e-10
@@ -92,7 +92,7 @@ def check_dmd_computation_simple_timeseries(exact, total):
     # DMD class with rank 2
     DMD = dmdtools.DMD(2, exact, total)
     DMD.fit(data)
-    dmd_vals, dmd_modes = DMD.get_dmd_pairs(sortby="LM")
+    dmd_vals, dmd_modes = DMD.get_mode_pairs(sortby="LM")
 
     for ii in range(len(vals)):
         assert np.abs(dmd_vals[ii] - vals[ii]) < 1e-10

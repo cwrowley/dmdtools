@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # Note:  n_rank is doubled because we only deal with real numbers
     dmd = dmdtools.DMD(n_rank*2, False, False)  # "standard" DMD
     dmd = dmd.fit(noisy_data)
-    dmd_vals, dmd_modes = dmd.get_dmd_pairs(sortby="LM")
+    dmd_vals, dmd_modes = dmd.get_mode_pairs(sortby="LM")
 
     # Plot the DMD eigenvalues
     plt.plot(dmd_vals.real, dmd_vals.imag, 'rv', ms=14)
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     # With TLS DMD
     tlsdmd = dmdtools.DMD(n_rank*2, False, True)  # "standard" DMD
     tlsdmd = tlsdmd.fit(noisy_data)
-    tlsdmd_vals, tlsdmd_modes = tlsdmd.get_dmd_pairs(sortby="LM")
+    tlsdmd_vals, tlsdmd_modes = tlsdmd.get_mode_pairs(sortby="LM")
 
     # Plot the DMD eigenvalues
     plt.plot(tlsdmd_vals.real, tlsdmd_vals.imag, 'b^', ms=14)
