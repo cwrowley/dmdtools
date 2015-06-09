@@ -125,8 +125,6 @@ class RegularizedDMD(object):
         Y = U.T.dot(Y)
 
         # We compute A transpose
-        if self.regularization == "L1":
-
         if self.regularization == "tik":
             solver = TikhonovSolver(self.gamma)
             solver.set_lhs(X.dot(X.T))
@@ -322,7 +320,7 @@ class ADMM(object):
                 S[S < 0] = 0.0
                 Z = (U*S).dot(Vh)
 
-            else:  # Default is L1
+            elif self.regularization == "L1":  # L1
                 Ztmp = X + Y/self.rho
                 thresh_val = self.gamma/self.rho
                 Z = np.piecewise(Ztmp, [Ztmp < -0.5*thresh_val,
@@ -331,6 +329,10 @@ class ADMM(object):
                                  [lambda z: z + 0.5*thresh_val,
                                   lambda z: z - 0.5*thresh_val,
                                   0.0])
+            else:
+                raise NotImplementedError("Regularization of type"+
+                                          self.regularization+
+                                          "is not currently implemented")
 
             # Update the multiplier
             Y += self.rho*(X - Z)

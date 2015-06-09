@@ -52,6 +52,9 @@ class DMD(object):
 
     Attributes
     ----------
+    Atilde_ : array, shape (n_rank, n_rank) or None
+       The DMD matrix.  Mostly used for testing purposes.
+
     modes_ : array, shape (n_dim, n_rank) or None
        The DMD modes associated with nonzero eigenvalues (if computed)
        or None otherwise.  The number of rows, n_dim, is determined during
@@ -79,9 +82,10 @@ class DMD(object):
     """
 
 
-    def __init__(self, n_rank=None, exact):
+    def __init__(self, n_rank=None, exact=False, total=False):
         self.n_rank = n_rank
         self.exact = exact
+        self.total = total
         self.modes_ = None
         self.evals_ = None
 
@@ -117,9 +121,11 @@ class DMD(object):
         if self.total:
             # Compute V using the method of snapshots
             sig2, V_stacked = np.linalg.eigh(X.T.dot(X) + Y.T.dot(Y))
+            inds = np.argsort(sig2)[::-1]  # sort by eigenvalue
+            V_stacked = V_stacked[:, inds[:self.n_rank]]  # truncate to n_rank
 
             # Compute the "clean" data sets
-            proj_Vh = V_stacked.T.dot(V_stacked)
+            proj_Vh = V_stacked.dot(V_stacked.T)
             X = X.dot(proj_Vh)
             Y = Y.dot(proj_Vh)
 
@@ -132,14 +138,14 @@ class DMD(object):
             Vh = Vh[:self.n_rank, :]
 
         # Compute the DMD matrix using the pseudoinverse of X
-        Atilde = U.T.dot(Y).dot(Vh.T)/S
+        self.Atilde_ = U.T.dot(Y).dot(Vh.T)/S
 
         # Eigensolve gives modes and eigenvalues
-        self.evals_, vecs = np.linalg.eig(Atilde)
+        self.evals_, vecs = np.linalg.eig(self.Atilde_)
 
         # Two options: exact modes or projected modes
         if self.exact:
-            self.modes_ = (Y.dot(Vh.T)/S).dot(vecs)/self.evals
+            self.modes_ = (Y.dot(Vh.T)/S).dot(vecs)/self.evals_
         else:
             self.modes_ = U.dot(vecs)
 
