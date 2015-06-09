@@ -58,6 +58,10 @@ class RegularizedDMD(object):
     max_iter : int, optional
         Maximum number of iteration if ADMM is used
 
+    tau : double, optional
+        Factor by which rho is adjusted to balance the primal
+        and dual problems.  Default is 2.0
+
     Attributes
     ----------
     modes_ : array, shape (n_dim, n_snapshots) or None
@@ -68,6 +72,8 @@ class RegularizedDMD(object):
     evals_ : array, shape (n_snapshots,) or None
        The eigenvalues associated with each mode (or None if not yet computed)
 
+    Atilde_ : array, shape (n_snapshots, n_snapshots) 
+       The matrix computed by regularized DMD (or None if not yet computed)
     Notes
     -----
     L1 and nuclear norm regularization is computed using the alternating
@@ -77,15 +83,17 @@ class RegularizedDMD(object):
 
 
     def __init__(self, gamma=1.0, regularization="tik",
-                 cutoff=(1e-3,1e-3), rho=1.0, max_iter=1000):
+                 cutoff=(1e-3,1e-3), rho=1.0, max_iter=1000, tau=2.0):
         self.gamma = gamma
         self.regularization = regularization
         self.cutoff = cutoff
         self.rho = rho
         self.max_iter = max_iter
+        self.tau = tau
 
         self.modes_ = None
         self.evals_ = None
+        self.Atilde_ = None
 
 
     def fit(self, X, Y, X0=None, Y0=None):
@@ -132,7 +140,7 @@ class RegularizedDMD(object):
         else:
             solver = ADMM(self.gamma, self.rho, self.cutoff[0],
                           self.cutoff[1], self.regularization,
-                          self.max_iter)
+                          self.max_iter, self.tau)
 
             AT, Ydual = solver.solve(X.T, Y.T, X0, Y0)
 
@@ -141,12 +149,13 @@ class RegularizedDMD(object):
             self.Y0 = Ydual.copy()
 
         # Compute modes and vals
-        self.evals_, dmd_vecs = np.linalg.eig(AT.T)
+        self.Atilde_ = AT.T
+        self.evals_, dmd_vecs = np.linalg.eig(self.Atilde_)
         self.modes_ = U.dot(dmd_vecs)
 
         return self
 
-    def get_dmd_pairs(self, k=None, sortby="none"):
+    def get_mode_pairs(self, k=None, sortby="none"):
         """ Returns the DMD modes and eigenvalues.
 
         Paramters
@@ -199,7 +208,7 @@ class TikhonovSolver(object):
 
     def __init__(self, rho):
         self.rho = rho
-        self.lhs_decomp_ = None
+        self.Achol_ = None
 
     def set_lhs(self, A, rho=None):
         """ Sets and decomposes the left hand side. 
@@ -216,7 +225,7 @@ class TikhonovSolver(object):
     def solve(self, B):
         """ Solve the Tikhonov regularized problem with the given rhs
         """
-        return scipy.linalg.cho_solve(self.lhs_decomp_, B)
+        return scipy.linalg.cho_solve(self.Achol_, B)
 
 
 class ADMM(object):
@@ -252,7 +261,14 @@ class ADMM(object):
 
     max_iter : int
        The maximum number of iterations before we give up
+   
+    tau : double
+       The amount rho is adjusted to balance the primal and dual problems
 
+    Attributes
+    ----------
+    mu : double
+        The threshold used to determine when rho should be adjusted
 
     References
     ----------
@@ -262,13 +278,18 @@ class ADMM(object):
     """
 
     def __init__(self, gamma=1.0, rho=1.0, epsilon_primal=1e-3,
-                 epsilon_dual=1e-3, regularization="L1", max_iter=int(1e4)):
+                 epsilon_dual=1e-3, regularization="L1", 
+                 max_iter=int(1e4), tau=2.0):
+
         self.gamma = gamma
         self.rho = rho
         self.epsilon_primal = epsilon_primal
         self.epsilon_dual = epsilon_dual
         self.regularization = regularization
         self.max_iter = int(max_iter)
+        self.tau = tau
+
+        self.mu = 10.0  # when to do the parameter update
 
     def solve(self, A, B, X0=None, Y0=None):
         """ Compute the regularized least squares solution. 
@@ -280,7 +301,8 @@ class ADMM(object):
         B : array
             The right hand side matrix in the least squares problem
         X0 : array, optional
-            An initial guess of the primal solution.  If none, defaults to zeros
+            An initial guess of the primal solution.  
+            If none, defaults to tikhonov solution
         Y0 : array, optional
             An initial guess of the dual solution.  If none, defaults to zeros
         """
@@ -288,9 +310,13 @@ class ADMM(object):
         ATA_ = A.T.dot(A)
         ATB_ = A.T.dot(B)
 
+        # Tikhonov regularization is a necessary step, setup the solver
+        tik_solver = TikhonovSolver(self.rho)
+        tik_solver.set_lhs(ATA_)
+
         # Setup the initial guess
         if X0  is None:
-            X = np.zeros((A.shape[1], B.shape[1]))
+            X = tik_solver.solve(ATB_)
         else:
             X = X0.copy()
 
@@ -301,22 +327,23 @@ class ADMM(object):
 
         Z = X.copy()
 
-        # Tikhonov regularization is a necessary step, setup the solver
-        tik_solver = TikhonovSolver(self.rho)
-        tik_solver.set_lhs(ATA_)
+
 
         # Main computationa loop
         for ii in xrange(self.max_iter):
             Zold = Z.copy()
-
+            Yold = Y.copy()
+            Xold = X.copy()
             # Update X
-            X = tik_solver.solve(ATB + self.rho*Z - Y)
+            X = tik_solver.solve(ATB_ + self.rho*Z - Y)
 
             # Update Z
             if self.regularization == "trace":  # SVD based thresholding
                 Z = X + Y/self.rho
                 U, S, Vh = np.linalg.svd(Z, full_matrices=False)
+                
                 S -= self.gamma/self.rho
+                Sold = S.copy()
                 S[S < 0] = 0.0
                 Z = (U*S).dot(Vh)
 
@@ -325,7 +352,7 @@ class ADMM(object):
                 thresh_val = self.gamma/self.rho
                 Z = np.piecewise(Ztmp, [Ztmp < -0.5*thresh_val,
                                         Ztmp > 0.5*thresh_val,
-                                        abs(Ztmp) <= thresh_val],
+                                        abs(Ztmp) <= 0.5*thresh_val],
                                  [lambda z: z + 0.5*thresh_val,
                                   lambda z: z - 0.5*thresh_val,
                                   0.0])
@@ -339,6 +366,16 @@ class ADMM(object):
 
             res_primal = np.linalg.norm(X - Z, "fro")
             res_dual = self.rho*np.linalg.norm(Z - Zold, "fro")
+
+            if res_primal > self.mu*res_dual:
+                self.rho *= self.tau
+                tik_solver.set_lhs(ATA_, self.rho)  # Recompute Tikhonov lhs
+            elif res_dual > self.mu*res_primal:
+                self.rho /= self.tau
+                tik_solver.set_lhs(ATA_, self.rho)  # Recompute Tikhonov lhs
+                
+
+            print ii, res_primal, res_dual, self.epsilon_primal*max(np.linalg.norm(X, "fro"), np.linalg.norm(Z, "fro")), self.epsilon_dual*np.linalg.norm(Y, "fro"), self.rho
 
             # Check that the procedure has terminated
             if res_primal < self.epsilon_primal*max(np.linalg.norm(X, "fro"),
