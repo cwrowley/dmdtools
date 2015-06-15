@@ -1,5 +1,5 @@
 """ Implements Dynamic Mode Decomposition, kernel DMD, exact DMD,
-and related algorithms given sets of data
+    and related algorithms given sets of data
 """
 
 import numpy as np
