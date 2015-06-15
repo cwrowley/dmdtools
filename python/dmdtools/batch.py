@@ -3,8 +3,7 @@ and related algorithms given sets of data
 """
 
 import numpy as np
-import scipy.spatial
-import warnings
+# import scipy.spatial
 
 
 class DMD(object):
@@ -20,7 +19,7 @@ class DMD(object):
     memory.  This algorithm runs in O(NM^2) time, where N is the size of a
     snapshot and M is the number of snapshots assuming N>M.
 
-    Due to the similarities in implementation, this code can compute the modes 
+    Due to the similarities in implementation, this code can compute the modes
     associated with three variants of DMD that have appeared in the literature,
     and a forth that is a logical combination of existing approaches:
 
@@ -37,7 +36,8 @@ class DMD(object):
         Number of POD modes to retain in the when performing DMD.  n_rank is
         an upper bound on the rank of the resulting DMD matrix.
 
-        If n_rank is None (default), then all of the POD modes will be retained.
+        If n_rank is None (default), then all of the POD modes will
+        be retained.
 
     exact : bool, optional
         If false (default), compute the DMD modes using projected DMD
@@ -51,18 +51,20 @@ class DMD(object):
 
         See Hemati & Rowley, 2015 for details.
 
-    Attributes
+    Properties
     ----------
-    Atilde_ : array, shape (n_rank, n_rank) or None
-       The DMD matrix.  Mostly used for testing purposes.
+    evals : array, shape (n_rank,) or None
+       The eigenvalues associated with each mode (None if not computed)
 
-    modes_ : array, shape (n_dim, n_rank) or None
-       The DMD modes associated with nonzero eigenvalues (if computed)
-       or None otherwise.  The number of rows, n_dim, is determined during
-       the fitting step.
+    modes: array, shape (n_dim, n_rank) or None
+       The DMD modes associated with the eigenvalues in evals
 
-    evals_ : array, shape (n_rank,) or None
-       The eigenvalues associated with each mode (or None if not yet computed)
+    basis : array, shape (n_dim, n_rank) or None
+       The basis vectors used to construct the modes.  If exact=False,
+       these are the POD modes ordered by energy.
+
+    Atilde : array, shape (n_rank, n_rank) or None
+       The "DMD matrix" used in mode computation
 
     Notes
     -----
@@ -82,14 +84,32 @@ class DMD(object):
 
     """
 
-
     def __init__(self, n_rank=None, exact=False, total=False):
         self.n_rank = n_rank
         self.exact = exact
         self.total = total
-        self.modes_ = None
-        self.evals_ = None
 
+        # Internal variables
+        self._basis = None  # spatial basis vectors
+        self._mode_coeffs = None  # DMD mode coefficients
+        self._evals = None  # DMD eigenvalues
+        self._Atilde = None  # The full DMD matrix
+
+    @property
+    def modes(self):
+        return self._basis.dot(self._mode_coeffs)
+
+    @property
+    def evals(self):
+        return self._evals
+
+    @property
+    def basis(self):
+        return self._basis
+
+    @property
+    def Atilde(self):
+        return self._Atilde
 
     def fit(self, X, Y=None):
         """ Fit a DMD model with the data in X (and Y)
@@ -114,8 +134,6 @@ class DMD(object):
             Returns this object containing the computed modes and eigenvalues
         """
 
-
-        
         if Y is None:
             Y = X[:, 1:]
             X = X[:, :-1]
@@ -148,56 +166,18 @@ class DMD(object):
             Vh = Vh[:n_rank, :]
 
         # Compute the DMD matrix using the pseudoinverse of X
-        self.Atilde_ = U.T.dot(Y).dot(Vh.T)/S
+        self._Atilde = U.T.dot(Y).dot(Vh.T)/S
 
         # Eigensolve gives modes and eigenvalues
-        self.evals_, vecs = np.linalg.eig(self.Atilde_)
+        self._evals, self._mode_coeffs = np.linalg.eig(self._Atilde)
 
         # Two options: exact modes or projected modes
         if self.exact:
-            self.modes_ = (Y.dot(Vh.T)/S).dot(vecs)/self.evals_
+            self._basis = Y.dot(Vh.T)/S
         else:
-            self.modes_ = U.dot(vecs)
+            self._basis = U
 
         return self
-
-    def get_mode_pairs(self, k=None, sortby="none", target=None):
-        """ Returns the DMD modes and eigenvalues.
-
-        Paramters
-        ---------
-        k : int, optional
-            The number of DMD mode/eigenvalue pairs to return.
-            None (default) returns all of them.
-
-        sortby : string, optional
-            How to sort the eigenvalues and modes.  Options are
-
-                "none" : No sorting, which is the default
-                "LM"   : Largest eigenvalue magnitudes come first
-                "closest" : Sort by distance from argument target
-
-        target : complex double, optional
-            If "closest" is chosen, sort by distance from this eigenvalue
-        """
-
-        if self.evals_ is None or self.modes_ is None:
-            raise RuntimeError("DMD modes have not yet been computed.")
-
-        if sortby == "none":
-            inds = np.arange(len(self.evals_))
-        elif sortby == "LM":
-            inds = np.argsort(np.abs(self.evals_))[::-1]
-        elif sortby == "closest":
-            inds = np.argsort(np.abs(self.evals_ - target))
-        else:
-            raise NotImplementedError("Cannot sort by " + sortby)
-
-        self.evals_ = self.evals_[inds]
-        self.modes_ = self.modes_[:, inds]
-
-        return self.evals_[:k], self.modes_[:, :k]
-
 
 
 class KDMD(object):
@@ -226,7 +206,7 @@ class KDMD(object):
 
     Parameters
     ----------
-    kernel_fun : function or functor (array, array) -> square array 
+    kernel_fun : function or functor (array, array) -> square array
         A kernel function that computes the inner products of data arranged
         in an array with snapshots along each *COLUMN* when the __call__
         method is evaluated.
@@ -251,27 +231,25 @@ class KDMD(object):
         See Hemati & Rowley, 2015 and Williams, Rowley,
         & Kevrekidis, 2015 for details.
 
-    Attributes
+    Properties
     ----------
-    Atilde_ : array, shape (n_rank, n_rank) or None
-       The DMD matrix.  Mostly used for testing purposes.
+    evals : array, shape (n_rank,) or None
+       The eigenvalues associated with each mode (None if not computed)
 
-    modes_ : array, shape (n_dim, n_rank) or None
-       The DMD modes associated with nonzero eigenvalues (if computed)
-       or None otherwise.  The number of rows, n_dim, is determined during
-       the fitting step.
+    modes: array, shape (n_dim, n_rank) or None
+       The DMD modes associated with the eigenvalues in evals
 
-    evals_ : array, shape (n_rank,) or None
-       The eigenvalues associated with each mode (or None if not yet computed)
+    Phi : array, shape (n_rank, n_snapshots) or None
+       An embedding of the X data
 
-    PhiX_ : array, shape (n_rank, n_snapshots) or None
-       An embedding of the X data 
+    Atilde : array, shape (n_rank, n_rank) or None
+       The "KDMD matrix" used in mode computation
 
     Notes
     -----
     Implements the DMD algorithms as presented in:
 
-    Williams, Rowley, and Kevrekidis.  A Kernel-Based Approach to 
+    Williams, Rowley, and Kevrekidis.  A Kernel-Based Approach to
         Data-Driven Koopman Spectral Analysis, arXiv:1411.2260 (2014)
 
     Augmented with ideas from:
@@ -287,9 +265,29 @@ class KDMD(object):
         self.n_rank = n_rank
         self.exact = exact
         self.total = total
-        self.modes_ = None
-        self.evals_ = None
 
+        self._modes = None
+        self._evals = None
+        self._Phi = None
+        self._Atilde = None
+        self._G = None
+        self._A = None
+
+    @property
+    def modes(self):
+        return self._modes
+
+    @property
+    def evals(self):
+        return self._evals
+
+    @property
+    def basis(self):
+        return self._basis
+
+    @property
+    def Atilde(self):
+        return self._Atilde
 
     def fit(self, X, Y=None):
         """ Fit a DMD model with the data in X (and Y)
@@ -344,7 +342,7 @@ class KDMD(object):
                 if self.total:
                     Gy = self.kernel_fun(Y, Y)
 
-        # Rank is determined either by the specified value or 
+        # Rank is determined either by the specified value or
         # the number of snapshots
         if self.n_rank is not None:
             n_rank = min(self.n_rank, X.shape[1])
@@ -367,93 +365,26 @@ class KDMD(object):
             Y = Y.dot(proj_Vh)
 
         # ===== Kernel Dynamic Mode Decomposition Computation ======
+        self._A = A
+        self._G = G
         S2, U = np.linalg.eigh(G)
-
 
         U = U[:, :n_rank]
         S2 = S2[:n_rank]
-
-        self.Atilde_ = U.T.dot(A).dot(U)/S2
+        self._Atilde = U.T.dot(A).dot(U)/S2
 
         # Eigensolve gives modes and eigenvalues
-        self.evals_, vecs = np.linalg.eig(self.Atilde_)
-        self.PhiX_ = ((G.dot(U)/S2).dot(vecs)).T
-        self.PhiY_ = ((A.dot(U)/S2).dot(vecs)).T
+        self._evals, vecs = np.linalg.eig(self._Atilde)
+        self._PhiX = ((G.dot(U)/S2).dot(vecs)).T
 
         # Two options: exact modes or projected modes
         if self.exact:
-            self.modes_ = Y.dot(np.linalg.pinv(self.PhiY_))
+            PhiY = ((A.dot(U)/S2).dot(vecs)).T
+            self._modes = Y.dot(np.linalg.pinv(PhiY))
         else:
-            self.modes_ = X.dot(np.linalg.pinv(self.PhiX_))
+            self._modes = X.dot(np.linalg.pinv(self._PhiX))
 
         return self
-
-    def get_mode_pairs(self, k=None, sortby="none", target=None):
-        """ Returns the DMD modes and eigenvalues.
-
-        Paramters
-        ---------
-        k : int, optional
-            The number of DMD mode/eigenvalue pairs to return.
-            None (default) returns all of them.
-
-        sortby : string, optional
-            How to sort the eigenvalues and modes.  Options are
-
-                "none" : No sorting, which is the default
-                "LM"   : Largest eigenvalue magnitudes come first
-        "closest" : Sort by distance from the target eigenvalues
-
-        target : complex double, optional
-            If "closest" is chosen, distance from this number determines
-            the sorting order.
-        """
-
-        if self.evals_ is None or self.modes_ is None:
-            raise RuntimeError("DMD modes have not yet been computed.")
-
-        if sortby == "none":
-            inds = np.arange(len(self.evals_))
-        elif sortby == "LM":
-            inds = np.argsort(np.abs(self.evals_))[::-1]
-        elif sortby == "closest":
-            inds = np.argsort(np.abs(self.evals_ - target))
-        else:
-            raise NotImplementedError("Cannot sort by " + sortby)
-
-        self.evals_ = self.evals_[inds]
-        self.modes_ = self.modes_[:, inds]
-        self.PhiX_ = self.PhiX_[inds, :]
-
-        return self.evals_[:k], self.modes_[:, :k]
-
-    def get_embedding_pairs(self, k=None, sortby="none", target=None):
-        """ Returns the eigenvalues and embedding of X data
-
-        Paramters
-        ---------
-        k : int, optional
-            The number of DMD mode/eigenvalue pairs to return.
-            None (default) returns all of them.
-
-        sortby : string, optional
-            How to sort the eigenvalues and modes.  Options are
-
-                "none" : No sorting, which is the default
-                "LM"   : Largest eigenvalue magnitudes come first
-                "closest" : Sort by distance from the target eigenvalues
-
-        target : complex double, optional
-            If "closest" is chosen, distance from this number determines
-            the sorting order.
-        """
-
-        if self.evals_ is None or self.PhiX_ is None:
-            raise RuntimeError("KDMD embedding has not yet been computed.")
-
-        self.get_dmd_pairs(k, sortby, target)  # sort the pairs
-
-        return self.evals_[:k], self.PhiX_[:k, :]
 
 
 class PolyKernel(object):
@@ -493,3 +424,94 @@ class PolyKernel(object):
         else:
             return self(X, X), self(Y, X)
 
+
+class DMAPSKernel(object):
+    """ Implements a kernel using approximate Laplace-Beltrami eigenfunctions
+
+    This class uses the Diffusion Maps algorithm to determine approximate
+    Laplace-Beltrami eigenfunctions, which are then used as basis functions
+    in EDMD.  To ensure a consistent embedding, the X and Y datasets must
+    be supplied jointly.  This can be done either by using __call__ with a
+    complete time-series of data or via the compute_products method.
+
+
+    Parameters
+    ----------
+    epsilon : double
+        Scaling parameter in the kernel.
+
+    References
+    ----------
+    Coifman and Lafon, Diffusion Maps, Applied and Computational
+        Harmonic Analysis (ACHA), 21(1) 2006.
+
+    """
+
+    def __init__(self, epsilon):
+        raise NotImplementedError("Do not use this yet!")
+        self.epsilon = 1.0
+
+    def __call__(self, X, Y):
+
+        pass
+
+    def compute_products(self, X, Y, Gy=False):
+        """
+        Compute the inner products X^T*X, Y^T*X, and if needed Y^T*Y.
+
+        For a polynomial kernel, this code is no more efficient than
+        computing the terms individually.  Other kernels require
+        knowledge of the complete data set, and must use this.
+
+        Note: If this method is not implemented, the KDMD code will
+        manually compute the inner products using the __call__ method.
+        """
+
+        if Gy:
+            return self(X, X), self(Y, X), self(Y, Y)
+        else:
+            return self(X, X), self(Y, X)
+
+
+def sort_modes_evals(dmd_class, k=None, sortby="LM", target=None):
+    """ Sort and return the DMD or KDMD modes and eigenvalues
+
+    Paramters
+    ---------
+    dmd_class : object
+       A DMD-like object with evals and modes properties
+
+    k : int, optional
+        The number of DMD mode/eigenvalue pairs to return.
+        None (default) returns all of them.
+
+    sortby : string, optional
+       How to sort the eigenvalues and modes.  Options are
+
+       "LM"   : Largest eigenvalue magnitudes come first
+       "closest" : Sort by distance from argument target
+
+    target : complex double, optional
+       If "closest" is chosen, sort by distance from this eigenvalue
+    """
+
+    evals = dmd_class.evals
+    modes = dmd_class.modes
+
+    if k is None:
+        k = len(evals)
+
+    if evals is None or modes is None:
+        raise RuntimeError("DMD modes have not yet been computed.")
+
+    if sortby == "LM":
+        inds = np.argsort(np.abs(evals))[::-1]
+    elif sortby == "closest":
+        inds = np.argsort(np.abs(evals - target))
+    else:
+        raise NotImplementedError("Cannot sort by " + sortby)
+
+    evals = evals[inds]
+    modes = modes[:, inds]
+
+    return evals[:k], modes[:, :k]

@@ -58,8 +58,8 @@ def check_kdmd_computation_simple(exact, total):
     KDMD.fit(X, Y)
 
     for ii in range(len(vals)):
-        dmd_vals, dmd_modes = KDMD.get_mode_pairs(sortby="closest",
-                                                  target=vals[ii])
+        dmd_vals, dmd_modes = dmdtools.sort_modes_evals(KDMD, sortby="closest",
+                                                   target=vals[ii])
         assert np.abs(dmd_vals[0] - vals[ii]) < 1e-10
         check_eigenvectors(vecs[:, ii], dmd_modes[:, 0])
 
