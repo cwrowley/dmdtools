@@ -114,16 +114,25 @@ class DMD(object):
             Returns this object containing the computed modes and eigenvalues
         """
 
+
+        
         if Y is None:
             Y = X[:, 1:]
             X = X[:, :-1]
+
+        #  Max rank is either the specified value or determined by matrix size
+        if self.n_rank is not None:
+            n_rank = min(self.n_rank, X.shape[0], X.shape[1])
+        else:
+            n_rank = min(X.shape)
 
         # ====== Total Least Squares DMD: Project onto shared subspace ========
         if self.total:
             # Compute V using the method of snapshots
             sig2, V_stacked = np.linalg.eigh(X.T.dot(X) + Y.T.dot(Y))
             inds = np.argsort(sig2)[::-1]  # sort by eigenvalue
-            V_stacked = V_stacked[:, inds[:self.n_rank]]  # truncate to n_rank
+
+            V_stacked = V_stacked[:, inds[:n_rank]]  # truncate to n_rank
 
             # Compute the "clean" data sets
             proj_Vh = V_stacked.dot(V_stacked.T)
@@ -134,9 +143,9 @@ class DMD(object):
         U, S, Vh = np.linalg.svd(X, full_matrices=False)
 
         if self.n_rank is not None:
-            U = U[:, :self.n_rank]
-            S = S[:self.n_rank]
-            Vh = Vh[:self.n_rank, :]
+            U = U[:, :n_rank]
+            S = S[:n_rank]
+            Vh = Vh[:n_rank, :]
 
         # Compute the DMD matrix using the pseudoinverse of X
         self.Atilde_ = U.T.dot(Y).dot(Vh.T)/S
@@ -304,10 +313,9 @@ class KDMD(object):
         self : object
             Returns this object containing the computed modes and eigenvalues
         """
-        
 
         if Y is None:
-            # Efficiently compute A, G, and optionally Gy 
+            # Efficiently compute A, G, and optionally Gy
             # given a time series of data
 
             Gfull = self.kernel_fun(X, X)
@@ -336,13 +344,20 @@ class KDMD(object):
                 if self.total:
                     Gy = self.kernel_fun(Y, Y)
 
+        # Rank is determined either by the specified value or 
+        # the number of snapshots
+        if self.n_rank is not None:
+            n_rank = min(self.n_rank, X.shape[1])
+        else:
+            n_rank = X.shape[1]
+
         # ====== Total Least Squares DMD: Project onto shared subspace ========
         if self.total:
             # Compute V using the method of snapshots
 
             sig2, V_stacked = np.linalg.eigh(G + Gy)
             inds = np.argsort(sig2)[::-1]  # sort by eigenvalue
-            V_stacked = V_stacked[:, inds[:self.n_rank]]  # truncate to n_rank
+            V_stacked = V_stacked[:, inds[:n_rank]]  # truncate to n_rank
 
             # Compute the "clean" data sets
             proj_Vh = V_stacked.dot(V_stacked.T)
@@ -354,9 +369,9 @@ class KDMD(object):
         # ===== Kernel Dynamic Mode Decomposition Computation ======
         S2, U = np.linalg.eigh(G)
 
-        if self.n_rank is not None:
-            U = U[:, :self.n_rank]
-            S2 = S2[:self.n_rank]
+
+        U = U[:, :n_rank]
+        S2 = S2[:n_rank]
 
         self.Atilde_ = U.T.dot(A).dot(U)/S2
 
@@ -396,7 +411,6 @@ class KDMD(object):
 
         if self.evals_ is None or self.modes_ is None:
             raise RuntimeError("DMD modes have not yet been computed.")
-
 
         if sortby == "none":
             inds = np.arange(len(self.evals_))
@@ -449,7 +463,7 @@ class PolyKernel(object):
 
     Parameters
     ----------
-    alpha : int 
+    alpha : int
         The power used in the polynomial kernel
     epsilon : double, optional
         Scaling parameter in the kernel, default is 1.
