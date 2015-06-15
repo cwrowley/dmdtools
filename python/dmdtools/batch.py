@@ -304,18 +304,42 @@ class KDMD(object):
         self : object
             Returns this object containing the computed modes and eigenvalues
         """
+        
 
         if Y is None:
+            # Efficiently compute A, G, and optionally Gy 
+            # given a time series of data
+
+            Gfull = self.kernel_fun(X, X)
+            G = Gfull[:-1, :-1]
+            A = Gfull[1:, :-1]
+
+            if self.total:
+                Gy = Gfull[1:, 1:]
+
             Y = X[:, 1:]
             X = X[:, :-1]
+        else:  # Paired data
 
-        G = self.kernel_fun(X, X)
-        A = self.kernel_fun(Y, X)
+            try:
+                gram_tuple = self.kernel_fun.compute_products(X, Y, self.total)
+
+                if self.total:
+                    G, A, Gy = gram_tuple
+                else:
+                    G, A = gram_tuple
+
+            except AttributeError:
+                G = self.kernel_fun(X, X)
+                A = self.kernel_fun(Y, X)
+
+                if self.total:
+                    Gy = self.kernel_fun(Y, Y)
 
         # ====== Total Least Squares DMD: Project onto shared subspace ========
         if self.total:
             # Compute V using the method of snapshots
-            Gy = self.kernel_fun(Y, Y)
+
             sig2, V_stacked = np.linalg.eigh(G + Gy)
             inds = np.argsort(sig2)[::-1]  # sort by eigenvalue
             V_stacked = V_stacked[:, inds[:self.n_rank]]  # truncate to n_rank
@@ -421,6 +445,8 @@ class KDMD(object):
 class PolyKernel(object):
     """ Implements a simple polynomial kernel
 
+    This class is meant as an example for implementing kernels.
+
     Parameters
     ----------
     alpha : int 
@@ -435,4 +461,21 @@ class PolyKernel(object):
 
     def __call__(self, X, Y):
         return (1.0 + X.T.dot(Y)/self.epsilon)**self.alpha
+
+    def compute_products(self, X, Y, Gy=False):
+        """
+        Compute the inner products X^T*X, Y^T*X, and if needed Y^T*Y.
+
+        For a polynomial kernel, this code is no more efficient than
+        computing the terms individually.  Other kernels require
+        knowledge of the complete data set, and must use this.
+
+        Note: If this method is not implemented, the KDMD code will
+        manually compute the inner products using the __call__ method.
+        """
+
+        if Gy:
+            return self(X, X), self(Y, X), self(Y, Y)
+        else:
+            return self(X, X), self(Y, X)
 

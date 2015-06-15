@@ -96,7 +96,7 @@ class RegularizedDMD(object):
         self.Atilde_ = None
 
 
-    def fit(self, X, Y, X0=None, Y0=None):
+    def fit(self, X, Y, X_unpaired = None, X0=None, Y0=None):
         """ Fit a regularized DMD model with the data in X (and Y)
 
         Parameters
@@ -113,6 +113,9 @@ class RegularizedDMD(object):
             Data set containing the updated snapshots of X after a fixed
             time interval has elapsed.
 
+        X_unpaired : array or None
+            Unpaired snapshots to be incorporated into the DMD model
+
         X0 : array, optional
         Y0 : array, optional
             Initial guesses for the primal and dual variables
@@ -123,14 +126,24 @@ class RegularizedDMD(object):
             Returns this object containing the computed modes and eigenvalues
         """
 
+        # Include any unpaired snapshots
+        if X_unpaired is not None:
+            X_full = np.c_[X, X_unpaired]
+        else:
+            X_full = X
+
         # Project onto a POD basis
-        sig2, V = np.linalg.eigh(X.T.dot(X))
+        sig2, V = np.linalg.eigh(X_full.T.dot(X_full))
         sig = np.sqrt(np.abs(sig2))
-        U = X.dot(V)/sig
+        U = X_full.dot(V)/sig
+
+        print U.shape, X_full.shape
 
         # Project X and Y onto a POD basis
         X = U.T.dot(X)
         Y = U.T.dot(Y)
+
+        print Y.shape
 
         # We compute A transpose
         if self.regularization == "tik":
@@ -326,7 +339,6 @@ class ADMM(object):
             Y = Y0.copy()
 
         Z = X.copy()
-
 
 
         # Main computationa loop

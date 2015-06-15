@@ -11,12 +11,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dmdtools
 
-m = 500  # Number of snapshots
+m = 10  # Number of snapshots
+m_unpaired = 50 # Unpaired X snapshots
 n = 50  # Apparent dimension
+
 
 # True underlying system
 n_true = 6
-Alow = np.diag(np.array([0.9, 0.81, 0.95, 0.7, 0.6, 0.88]) * 
+Alow = np.diag(np.array([0.9, 0.81, 0.95, 0.7, 0.6, 0.01]) * 
                np.exp(np.array([1j, 1.2j, 1.2j, 0.5j, 0.2j, 1j])))
 A = Alow
 np.random.seed(0)
@@ -28,20 +30,26 @@ Q = np.linalg.qr(np.random.randn(n, n_true))[0]
 X = np.random.randn(n_true, m) + 1j*np.random.randn(n_true, m)
 X = A.dot(A.dot(X))
 Y = A.dot(X)
+X_unpaired = np.random.randn(n_true, m_unpaired) + 1j*np.random.randn(n_true, m_unpaired)
+
+
 
 # Hide all but 4 entries 
 #X = X[:3, :]
 #Y = Y[:3, :]
 X = Q.dot(X)
 Y = Q.dot(Y)
-
+X_unpaired = Q.dot(X_unpaired)
 
 
 X = np.r_[X.real, X.imag]
 Y = np.r_[Y.real, Y.imag]
+X_unpaired = np.r_[X_unpaired.real, X_unpaired.imag]
 
-X += 5e-1*(np.random.randn(X.shape[0], X.shape[1]))
-Y += 5e-1*(np.random.randn(Y.shape[0], Y.shape[1]))
+#X += 1e-1*(np.random.randn(X.shape[0], X.shape[1]))
+Y += 1e-1*(np.random.randn(Y.shape[0], Y.shape[1]))
+#X_unpaired += 1e-1*(np.random.randn(X_unpaired.shape[0], 
+#                                    X_unpaired.shape[1]))
 
 #X = np.r_[X, X**2]
 #Y = np.r_[Y, Y**2]
@@ -58,8 +66,8 @@ plt.plot(np.diag(Alow).real, np.diag(Alow).imag, 'k.', ms=14)
 plt.plot(dmd_vals.real, dmd_vals.imag, 'x', ms=14)
 
 
-DMDr = dmdtools.RegularizedDMD(1.0, "trace", rho=1.0, cutoff=(1e-4, 1e-4), max_iter=2000)
-DMDr.fit(X, Y)
+DMDr = dmdtools.RegularizedDMD(0.01, "trace", rho=1.0, cutoff=(1e-6, 1e-6), max_iter=2000)
+DMDr.fit(X, Y, X_unpaired)
 dmdr_vals, dmdr_modes = DMDr.get_mode_pairs()
 
 plt.plot(dmdr_vals.real, dmdr_vals.imag, '+', ms=14)
