@@ -425,54 +425,6 @@ class PolyKernel(object):
             return self(X, X), self(Y, X)
 
 
-class DMAPSKernel(object):
-    """ Implements a kernel using approximate Laplace-Beltrami eigenfunctions
-
-    This class uses the Diffusion Maps algorithm to determine approximate
-    Laplace-Beltrami eigenfunctions, which are then used as basis functions
-    in EDMD.  To ensure a consistent embedding, the X and Y datasets must
-    be supplied jointly.  This can be done either by using __call__ with a
-    complete time-series of data or via the compute_products method.
-
-
-    Parameters
-    ----------
-    epsilon : double
-        Scaling parameter in the kernel.
-
-    References
-    ----------
-    Coifman and Lafon, Diffusion Maps, Applied and Computational
-        Harmonic Analysis (ACHA), 21(1) 2006.
-
-    """
-
-    def __init__(self, epsilon):
-        raise NotImplementedError("Do not use this yet!")
-        self.epsilon = 1.0
-
-    def __call__(self, X, Y):
-
-        pass
-
-    def compute_products(self, X, Y, Gy=False):
-        """
-        Compute the inner products X^T*X, Y^T*X, and if needed Y^T*Y.
-
-        For a polynomial kernel, this code is no more efficient than
-        computing the terms individually.  Other kernels require
-        knowledge of the complete data set, and must use this.
-
-        Note: If this method is not implemented, the KDMD code will
-        manually compute the inner products using the __call__ method.
-        """
-
-        if Gy:
-            return self(X, X), self(Y, X), self(Y, Y)
-        else:
-            return self(X, X), self(Y, X)
-
-
 def sort_modes_evals(dmd_class, k=None, sortby="LM", target=None):
     """ Sort and return the DMD or KDMD modes and eigenvalues
 
