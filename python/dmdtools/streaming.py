@@ -1,57 +1,5 @@
 import numpy as np
 
-def dmd(X, Y):
-    """Compute DMD modes and eigenvalues for data matrices X and Y"""
-    Qx, S, Vt = np.linalg.svd(X, full_matrices=False)
-    V = Vt.T
-    Sinv = np.diag(1./S)
-    Ktilde = Qx.T.dot(Y).dot(V).dot(Sinv)
-    evals, evecK = np.linalg.eig(Ktilde)
-    modes = Qx.dot(evecK)
-    return modes, evals
-
-def polynomial_kernel(X, Y, n):
-    return (1 + np.dot(X.T, Y)) ** n
-
-def kdmd(X, Y, kernel=None):
-    """Compute Koopman modes and eigenvalues using kernel DMD
-
-    Parameters
-    ----------
-    X : array
-        Input array whose columns are snapshots at initial times
-    Y : array
-        Input array whose columns are snapshots at final times
-    kernel : int or callable, optional
-        If None (default) or zero, use kernel f(x,y) = x'y
-        If integer ``n``, use polynomial kernel f(x,y) = (1 + x'y)^n
-        If callable ``kernel``, use custom f(x,y) = kernel(x, y)
-
-    Returns
-    -------
-    modes : array
-        Array whose columns are Koopman modes
-    evals : array
-        DMD eigenvalues
-    """
-    if kernel is None or kernel == 0:
-        # standard DMD
-        G = np.dot(X.T, X)
-        A = np.dot(Y.T, X)
-    elif type(kernel) is int:
-        # use the polynomial kernel: (1 + x.y)^n
-        G = polynomial_kernel(X, X, kernel)
-        A = polynomial_kernel(Y, X, kernel)
-    else:
-        # use a custom kernel
-        G = kernel(X, X)
-        A = kernel(Y, X)
-    K = np.dot(np.linalg.pinv(G), A)
-    evals, evecs = np.linalg.eig(K.T)
-    Ginv = np.linalg.pinv(G)
-    modes = np.dot(X, np.dot(Ginv, evecs))
-    return modes, evals
-
 
 class StreamingDMD:
     def __init__(self, max_rank=None, ngram=5, epsilon=1.e-10):
@@ -111,7 +59,8 @@ class StreamingDMD:
             # update basis for x
             self.Qx = np.bmat([self.Qx, ex / np.linalg.norm(ex)])
             # increase size of Gx and A (by zero-padding)
-            self.Gx = np.bmat([[self.Gx, np.zeros((rx, 1))],[np.zeros((1,rx+1))]])
+            self.Gx = np.bmat([[self.Gx, np.zeros((rx, 1))],
+                               [np.zeros((1, rx+1))]])
             self.A = np.bmat([self.A, np.zeros((ry, 1))])
             rx += 1
 
@@ -120,8 +69,10 @@ class StreamingDMD:
             # update basis for y
             self.Qy = np.bmat([self.Qy, ey / np.linalg.norm(ey)])
             # increase size of Gy and A (by zero-padding)
-            self.Gy = np.bmat([[self.Gy, np.zeros((ry,1))],[np.zeros((1,ry+1))]])
-            self.A = np.bmat([[self.A],[np.zeros((1,rx))]])
+            self.Gy = np.bmat([[self.Gy, np.zeros((ry, 1))],
+                               [np.zeros((1, ry+1))]])
+            self.A = np.bmat([[self.A],
+                              [np.zeros((1, rx))]])
             ry += 1
 
         # ---- Algorithm step 3 ----
@@ -132,7 +83,7 @@ class StreamingDMD:
                 evals, evecs = np.linalg.eig(self.Gx)
                 idx = np.argsort(evals)
                 idx = idx[-1:-1-r0:-1]   # indices of largest r0 eigenvalues
-                qx = np.asmatrix(evecs[:,idx])
+                qx = np.asmatrix(evecs[:, idx])
                 self.Qx = self.Qx * qx
                 self.A = self.A * qx
                 self.Gx = np.asmatrix(np.diag(evals[idx]))
@@ -140,7 +91,7 @@ class StreamingDMD:
                 evals, evecs = np.linalg.eig(self.Gy)
                 idx = np.argsort(evals)
                 idx = idx[-1:-1-r0:-1]   # indices of largest r0 eigenvalues
-                qy = np.asmatrix(evecs[:,idx])
+                qy = np.asmatrix(evecs[:, idx])
                 self.Qy = self.Qy * qy
                 self.A = qy.T * self.A
                 self.Gy = np.asmatrix(np.diag(evals[idx]))
@@ -150,7 +101,7 @@ class StreamingDMD:
         ytilde = self.Qy.T * y
 
         # update A and Gx
-        self.A  += ytilde * xtilde.T
+        self.A += ytilde * xtilde.T
         self.Gx += xtilde * xtilde.T
         self.Gy += ytilde * ytilde.T
 
