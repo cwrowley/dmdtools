@@ -46,12 +46,12 @@ class DMD(object):
         See Tu et al., 2014 for details.
 
     total : bool, optional
-        If false (default), compute the ``standard'' DMD modes
+        If false (default), compute the standard DMD modes
         If true, compute the total least squares DMD modes
 
         See Hemati & Rowley, 2015 for details.
 
-    Properties
+    Attributes
     ----------
     evals : array, shape (n_rank,) or None
        The eigenvalues associated with each mode (None if not computed)
@@ -64,7 +64,7 @@ class DMD(object):
        these are the POD modes ordered by energy.
 
     Atilde : array, shape (n_rank, n_rank) or None
-       The "DMD matrix" used in mode computation
+       The DMD matrix used in mode computation
 
     Notes
     -----
@@ -119,7 +119,7 @@ class DMD(object):
         X : array, shape (n_dim, n_snapshots)
             Data set where n_snapshots is the number of snapshots and
             n_dim is the size of each snapshot.  Note that spatially
-            distributed data should be ``flattened'' to a vector.
+            distributed data should be "flattened" to a vector.
 
             If Y is None, then the columns of X must contain a time-series
             of data taken with a fixed sampling interval.
@@ -225,13 +225,13 @@ class KDMD(object):
         for details.
 
     total : bool, optional
-        If false (default), compute the ``standard'' KDMD modes
+        If false (default), compute the standard KDMD modes
         If true, compute the total least squares KDMD modes
 
         See Hemati & Rowley, 2015 and Williams, Rowley,
         & Kevrekidis, 2015 for details.
 
-    Properties
+    Attributes
     ----------
     evals : array, shape (n_rank,) or None
        The eigenvalues associated with each mode (None if not computed)
@@ -257,7 +257,7 @@ class KDMD(object):
     Hemati and Rowley, De-biasing the dynamic mode decomposition
         for applied Koopman spectral analysis, arXiv:1502.03854 (2015).
 
-    For kernel DMD as defined in Williams, exact=False and total= False
+    For kernel DMD as defined in Williams, exact=False and total=False
     """
 
     def __init__(self, kernel_fun, n_rank=None, exact=False, total=False):
@@ -297,7 +297,7 @@ class KDMD(object):
         X : array, shape (n_dim, n_snapshots)
             Data set where n_snapshots is the number of snapshots and
             n_dim is the size of each snapshot.  Note that spatially
-            distributed data should be ``flattened'' to a vector.
+            distributed data should be "flattened" to a vector.
 
             If Y is None, then the columns of X must contain a time-series
             of data taken with a fixed sampling interval.
@@ -398,6 +398,11 @@ class PolyKernel(object):
         The power used in the polynomial kernel
     epsilon : double, optional
         Scaling parameter in the kernel, default is 1.
+
+    Notes
+    -----
+    We refer to the transformation from state space to feature space a f 
+    in all that follows.
     """
 
     def __init__(self, alpha, epsilon=1.0):
@@ -405,11 +410,31 @@ class PolyKernel(object):
         self.epsilon = epsilon
 
     def __call__(self, X, Y):
+        """
+        Compute the inner products (in feature space) of f(X)^T*f(Y)
+
+        Parameters
+        ----------
+        X : array, shape (n_dim, n_snapshots)
+            Data set where n_snapshots is the number of snapshots and
+            n_dim is the size of each snapshot.  Note that spatially
+            distributed data should be flattened to a vector.
+
+        Y : array, shape (n_dim, n_snapsots)
+            Data set containing the updated snapshots of X after a fixed
+            time interval has elapsed.
+
+        Returns
+        -------
+        self : array, shape (n_snapsots, n_snapshots)
+            Returns the matrix of inner products in feature space
+        """
+
         return (1.0 + X.T.dot(Y)/self.epsilon)**self.alpha
 
     def compute_products(self, X, Y, Gy=False):
         """
-        Compute the inner products X^T*X, Y^T*X, and if needed Y^T*Y.
+        Compute the inner products f(X)^T*f(X), f(Y)^T*f(X), and if needed f(Y)^T*f(Y).
 
         For a polynomial kernel, this code is no more efficient than
         computing the terms individually.  Other kernels require
@@ -428,8 +453,8 @@ class PolyKernel(object):
 def sort_modes_evals(dmd_class, k=None, sortby="LM", target=None):
     """ Sort and return the DMD or KDMD modes and eigenvalues
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     dmd_class : object
        A DMD-like object with evals and modes properties
 
