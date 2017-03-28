@@ -17,9 +17,10 @@
 %       ``Dynamic Mode Decomposition for Large and Streaming Datasets,''
 %       Physics of Fluids, vol. 26, 111701 (2014).
 %
-%       M.S. Hemati, C.W. Rowley,
-%       ``De-Biasing the Dynamic Mode Decomposition for Applied Koopman 
-%       Spectral Analysis,'' submitted to PNAS (2015).
+%       M.S. Hemati, C.W. Rowley, E.A. Deem, and L.N. Cattafesta
+%       ``De-biasing the dynamic mode decomposition for
+%         applied Koopman spectral analysis of noisy datasets,''
+%         Theortical and Computational Fluid Dynamics (2017).
 %
 % Tested using Matlab 8.1.0.604 (R2013a) for Mac OSX.
 %
